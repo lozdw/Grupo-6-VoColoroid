@@ -88,6 +88,10 @@ class App:
             pygame.image.load(directorio_fondos / "5 sin título.png").convert(),
             self.pantalla.get_size(),
         )
+        self.fondo_juego = pygame.transform.smoothscale(
+            pygame.image.load(directorio_fondos / "Fondo Juego Colores.png").convert_alpha(),
+            self.pantalla.get_size(),
+        )
         logo_inicio_original = pygame.image.load(
             directorio_fondos / "Logo VoColoroid con N.png"
         ).convert_alpha()
@@ -154,6 +158,17 @@ class App:
             }
             for numero, nombre in nombres_colores.items()
         }
+        circulo_extra_original = pygame.image.load(
+            directorio_imagenes / "circulo.png"
+        ).convert_alpha()
+        self.escala_circulo_extra = 650 / 987
+        self.circulo_extra = pygame.transform.smoothscale(
+            circulo_extra_original,
+            (
+            round(circulo_extra_original.get_width() * self.escala_circulo_extra),
+            round(circulo_extra_original.get_height() * self.escala_circulo_extra),
+            ),
+        )
         self.logo_intro = pygame.image.load(directorio_fondos / "logo redondo.png").convert_alpha()
         self.logo_intro = pygame.transform.smoothscale(self.logo_intro, (420, 420))
         self.rect_logo_intro = self.logo_intro.get_rect(center=self.pantalla.get_rect().center)
@@ -211,7 +226,7 @@ class App:
             "Gumi": pygame.Rect(435, 70, 430, 50),
             "generico": pygame.Rect(180, 150, 435, 40),
         }
-        tamano_marco_tiempo = (500, 44)
+        tamano_marco_tiempo = (240, 21)
         self.marcos_barra_tiempo = {
             nombre: pygame.transform.smoothscale(
                 imagen_marcos_tiempo.subsurface(recorte),
@@ -239,18 +254,16 @@ class App:
         
         centro_juego = self.pantalla.get_rect().center
         inicio_juego_x = centro_juego[0] - 300
-        inicio_juego_y = centro_juego[1] - 300 - 29
+        inicio_juego_y = centro_juego[1] - 300
         self.rects_botones = {
             3: pygame.Rect(inicio_juego_x, inicio_juego_y, 300, 300), # Verde (Arriba izquierda)
             2: pygame.Rect(inicio_juego_x + 300, inicio_juego_y, 300, 300), # Azul (Arriba derecha)
             4: pygame.Rect(inicio_juego_x, inicio_juego_y + 300, 300, 300), # Amarillo (Abajo izquierda)
             1: pygame.Rect(inicio_juego_x + 300, inicio_juego_y + 300, 300, 300), # Rojo (Abajo derecha)
         }
-        self.rect_barra_tiempo = pygame.Rect(
-            self.pantalla.get_rect().centerx - tamano_marco_tiempo[0] // 2,
-            self.rects_botones[4].bottom + 10,
-            *tamano_marco_tiempo,
-        )
+        
+        self.rect_barra_tiempo = pygame.Rect(0, 0, *tamano_marco_tiempo)
+        self.rect_barra_tiempo.center = (150, centro_juego[1] + 25)
         self.estrellita = self.crear_estrellita(84)
         
         centro_x = self.pantalla.get_rect().centerx
@@ -296,7 +309,7 @@ class App:
         )
         self.rect_continuar = pygame.Rect(centro_x - 200, 500, 400, 70)
         self.personaje_hover = None
-        posicion_lateral_x = self.pantalla.get_rect().right - 230
+        posicion_lateral_x = self.pantalla.get_rect().right - 253
         self.rect_reinicio = pygame.Rect(posicion_lateral_x, centro_y - 55, 200, 50)
         self.rect_volver = pygame.Rect(posicion_lateral_x, centro_y + 5, 200, 50)
 
@@ -750,7 +763,7 @@ class App:
         if lado == "izquierda":
             rect_texto = superficie.get_rect(topleft=(30, y))
         else:
-            rect_texto = superficie.get_rect(topright=(self.pantalla.get_rect().right - 30, y))
+            rect_texto = superficie.get_rect(topright=(self.pantalla.get_rect().right - 53, y))
         self.pantalla.blit(superficie, rect_texto)
 
     def crear_estrellita(self, tamano):
@@ -767,7 +780,7 @@ class App:
     def dibujar_estrellita(self):
         centro_estrellita = (
             self.pantalla.get_rect().centerx,
-            self.pantalla.get_rect().centery - 29,
+            self.pantalla.get_rect().centery,
         )
         rect_estrella = self.estrellita.get_rect(center=centro_estrellita)
         self.pantalla.blit(self.estrellita, rect_estrella)
@@ -800,7 +813,7 @@ class App:
             else "generico"
         )
         rect_marco = self.rect_barra_tiempo
-        rect_relleno = rect_marco.inflate(-32, -14)
+        rect_relleno = rect_marco.inflate(-16, -6)
         rect_relleno.width = round(rect_relleno.width * progreso)
         colores_barras_personajes = {
             "Miku": (53, 186, 199),
@@ -860,7 +873,10 @@ class App:
             self.dibujar_intro()
             return
 
-        self.pantalla.fill((189, 189, 189))
+        self.pantalla.fill((0, 0, 0))
+        
+        if self.estado_actual in ["MOSTRANDO_SECUENCIA", "JUGANDO", "TRANSICION_NIVEL", "ESPERANDO_TRANSICION", "GAME_OVER"]:
+            self.pantalla.blit(self.fondo_juego, (0, 0))
         
         if self.estado_actual == "MENU":
             self.actualizar_fondo_menu()
@@ -927,6 +943,17 @@ class App:
             )
 
         elif self.estado_actual in ["MOSTRANDO_SECUENCIA", "JUGANDO"]:
+            centro_rueda = (
+                self.pantalla.get_rect().centerx,
+                self.rects_botones[3].top + self.rects_botones[3].height,
+            )
+            rect_circulo_extra = self.circulo_extra.get_rect(
+                topleft=(
+                    round(centro_rueda[0] - 961.5 * self.escala_circulo_extra),
+                    round(centro_rueda[1] - 539.5 * self.escala_circulo_extra),
+                )
+            )
+            self.pantalla.blit(self.circulo_extra, rect_circulo_extra)
             self.dibujar_texto_lateral(
                 f"Puntaje: {self.gestor_puntuacion.total}",
                 self.fuente_normal,
@@ -934,15 +961,13 @@ class App:
                 30,
                 "izquierda",
             )
-            self.dibujar_texto_lateral(
+            self.dibujar_texto_centrado(
                 f"Tiempo: {max(0, self.t_restante):.1f}s",
                 self.fuente_normal,
                 (0, 0, 0),
-                65,
-                "izquierda",
+                (self.rect_barra_tiempo.centerx, self.rect_barra_tiempo.top - 35),
             )
             self.dibujar_texto_lateral(self.mensaje, self.fuente_normal, (0, 100, 0), 30, "derecha")
-            
             for numero, rect in self.rects_botones.items():
                 esta_presionado = (
                     self.color_iluminado == numero
@@ -961,6 +986,18 @@ class App:
             self.dibujar_texto_centrado("VOLVER", self.fuente_normal, (255, 255, 255), self.rect_volver.center)
 
         elif self.estado_actual == "TRANSICION_NIVEL":
+            centro_rueda = (
+                self.pantalla.get_rect().centerx,
+                self.rects_botones[3].top + self.rects_botones[3].height,
+            )
+            rect_circulo_extra = self.circulo_extra.get_rect(
+                topleft=(
+                    round(centro_rueda[0] - 961.5 * self.escala_circulo_extra),
+                    round(centro_rueda[1] - 539.5 * self.escala_circulo_extra),
+                )
+            )
+            self.pantalla.blit(self.circulo_extra, rect_circulo_extra)
+            
             for numero, rect in self.rects_botones.items():
                 tipo_imagen = "presionado" if self.color_iluminado == numero else "normal"
                 self.pantalla.blit(self.imagenes_botones[numero][tipo_imagen], rect)
@@ -968,6 +1005,18 @@ class App:
             self.dibujar_transicion_nivel()
 
         elif self.estado_actual == "ESPERANDO_TRANSICION":
+            centro_rueda = (
+                self.pantalla.get_rect().centerx,
+                self.rects_botones[3].top + self.rects_botones[3].height,
+            )
+            rect_circulo_extra = self.circulo_extra.get_rect(
+                topleft=(
+                    round(centro_rueda[0] - 961.5 * self.escala_circulo_extra),
+                    round(centro_rueda[1] - 539.5 * self.escala_circulo_extra),
+                )
+            )
+            self.pantalla.blit(self.circulo_extra, rect_circulo_extra)
+            
             for numero, rect in self.rects_botones.items():
                 tipo_imagen = "presionado" if self.boton_presionado == numero else "normal"
                 self.pantalla.blit(self.imagenes_botones[numero][tipo_imagen], rect)
