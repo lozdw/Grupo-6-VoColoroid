@@ -58,8 +58,7 @@ class Neru(Personaje):
         except Exception: pass
 
 class Gumi(Personaje):
-    def __init__(self): super().__init__("Gumi", multiplicador=1.2); self.penalizacion_error = 1.0
-    def _aplicar_habilidad(self, estado_juego): pass
+    def __init__(self):
         super().__init__("Gumi", multiplicador=1.2)
         self.penalizacion_error = 1.0
 
