@@ -172,6 +172,18 @@ class App:
         self.logo_intro = pygame.image.load(directorio_fondos / "logo redondo.png").convert_alpha()
         self.logo_intro = pygame.transform.smoothscale(self.logo_intro, (420, 420))
         self.rect_logo_intro = self.logo_intro.get_rect(center=self.pantalla.get_rect().center)
+        self.imagen_boton_reinicio = pygame.transform.smoothscale(
+            pygame.image.load(directorio_imagenes / "boton 1.png").convert_alpha(),
+            (200, 50),
+        )
+        self.imagen_boton_volver = pygame.transform.smoothscale(
+            pygame.image.load(directorio_imagenes / "boton 2 move.png").convert_alpha(),
+            (200, 50),
+        )
+        self.imagen_boton_volver_presionado = pygame.transform.smoothscale(
+            pygame.image.load(directorio_imagenes / "boton 2.png").convert_alpha(),
+            (200, 50),
+        )
 
         tamano_imagen_personaje = 170
         nombres_imagenes_personajes = {
@@ -324,6 +336,7 @@ class App:
         self.luz_encendida = False
         self.boton_presionado = None
         self.tiempo_boton_presionado = 0
+        self.volver_presionado = False
         self.tiempo_espera_transicion = 0
         self.tiempo_transicion_nivel = 0
         self.pulsos_por_segundo_personaje = 180 / 60
@@ -413,7 +426,12 @@ class App:
                     self.ejecutando = False
                 
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                    if self.rect_volver.collidepoint(evento.pos):
+                        self.volver_presionado = pygame.time.get_ticks()
                     self.manejar_clic(evento.pos)
+
+                if evento.type == pygame.MOUSEBUTTONUP and evento.button == 1:
+                    self.volver_presionado = 0
 
                 if (
                     evento.type == pygame.KEYDOWN
@@ -448,6 +466,12 @@ class App:
 
             if self.boton_presionado is not None and pygame.time.get_ticks() >= self.tiempo_boton_presionado:
                 self.boton_presionado = None
+
+            if self.volver_presionado != 0 and pygame.time.get_ticks() >= self.volver_presionado + 70:
+                self.gestor_secuencia.reiniciar_progreso()
+                self.gestor_puntuacion.reset()
+                self.volver_presionado = 0
+                self.estado_actual = "MENU"
 
             self.actualizar_musica()
             
@@ -606,9 +630,6 @@ class App:
             elif self.rect_volver.collidepoint(pos):
                 if self.sonido_settings is not None and not self.sonidos_sistema_silenciados:
                     self.sonido_settings.play()
-                self.gestor_secuencia.reiniciar_progreso()
-                self.gestor_puntuacion.reset()
-                self.estado_actual = "MENU"
 
         elif self.estado_actual == "GAME_OVER":
             if self.rect_reinicio.collidepoint(pos):
@@ -620,9 +641,6 @@ class App:
             elif self.rect_volver.collidepoint(pos):
                 if self.sonido_settings is not None and not self.sonidos_sistema_silenciados:
                     self.sonido_settings.play()
-                self.gestor_secuencia.reiniciar_progreso()
-                self.gestor_puntuacion.reset()
-                self.estado_actual = "MENU"
 
     def actualizar_personaje_hover(self, pos):
         self.personaje_hover = next(
@@ -980,9 +998,10 @@ class App:
             if self.estado_actual == "JUGANDO":
                 self.dibujar_personaje_jugando()
 
-            pygame.draw.rect(self.pantalla, (0,0,0), self.rect_reinicio)
+            self.pantalla.blit(self.imagen_boton_reinicio, self.rect_reinicio)
             self.dibujar_texto_centrado("REINICIAR", self.fuente_normal, (255, 255, 255), self.rect_reinicio.center)
-            pygame.draw.rect(self.pantalla, (0,0,0), self.rect_volver)
+            img_volver = self.imagen_boton_volver_presionado if self.volver_presionado else self.imagen_boton_volver
+            self.pantalla.blit(img_volver, self.rect_volver)
             self.dibujar_texto_centrado("VOLVER", self.fuente_normal, (255, 255, 255), self.rect_volver.center)
 
         elif self.estado_actual == "TRANSICION_NIVEL":
@@ -1025,14 +1044,14 @@ class App:
         elif self.estado_actual == "GAME_OVER":
             centro_x = self.pantalla.get_rect().centerx
             self.dibujar_texto_centrado("GAME OVER", self.fuente_titulo, (200, 0, 0), (centro_x, 200))
-            self.dibujar_texto_lateral(
+            self.dibujar_texto_centrado(
                 f"Puntaje Final: {self.gestor_puntuacion.total}",
                 self.fuente_normal,
                 (0, 0, 0),
-                300,
-                "derecha",
+                (centro_x, 300),
             )
-            pygame.draw.rect(self.pantalla, (0,0,0), self.rect_reinicio)
+            self.pantalla.blit(self.imagen_boton_reinicio, self.rect_reinicio)
             self.dibujar_texto_centrado("REINICIAR", self.fuente_normal, (255, 255, 255), self.rect_reinicio.center)
-            pygame.draw.rect(self.pantalla, (0,0,0), self.rect_volver)
+            img_volver = self.imagen_boton_volver_presionado if self.volver_presionado else self.imagen_boton_volver
+            self.pantalla.blit(img_volver, self.rect_volver)
             self.dibujar_texto_centrado("VOLVER", self.fuente_normal, (255, 255, 255), self.rect_volver.center)
