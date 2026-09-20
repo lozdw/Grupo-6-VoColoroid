@@ -102,8 +102,10 @@ class App(VistasJuego, CargadorRecursos):
         while self.ejecutando:
             dt = self.reloj.tick(self.fps_objetivo) / 1000.0
             for ev in pygame.event.get():
-                if ev.type == pygame.QUIT:
-                    self.gestor_secuencia.reiniciar_progreso(); self.ejecutando = False
+                if ev.type == pygame.QUIT or (ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE):
+                    self.gestor_secuencia.reiniciar_progreso()
+                    self.ejecutando = False
+                    break
                 if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                     if self.rect_volver.collidepoint(ev.pos): self.volver_presionado = pygame.time.get_ticks()
                     if self.rect_reinicio.collidepoint(ev.pos): self.reinicio_presionado = pygame.time.get_ticks()
