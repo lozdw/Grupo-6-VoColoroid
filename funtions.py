@@ -12,7 +12,7 @@ class GestorSecuencia:
             self.archivo_niveles.write_text("1", encoding="utf-8")
             return
         actual = self.archivo_niveles.read_text(encoding="utf-8").strip()
-        if actual == "":
+        if not actual:
             self.archivo_niveles.write_text("1", encoding="utf-8")
 
     def consultar_nivel(self):
@@ -20,13 +20,13 @@ class GestorSecuencia:
         try:
             with self.archivo_niveles.open("r", encoding="utf-8") as archivo:
                 valor = int(archivo.read().strip())
-                return valor if valor > 0 else 1
+                return max(valor, 1)
         except (OSError, ValueError):
             return 1
 
     def avanzar_nivel(self):
-        nivel_actual = self.consultar_nivel()
-        self.archivo_niveles.write_text(f"{nivel_actual + 1}", encoding="utf-8")
+        nivel = self.consultar_nivel()
+        self.archivo_niveles.write_text(str(nivel + 1), encoding="utf-8")
 
     def reiniciar_progreso(self):
         self.archivo_niveles.write_text("1", encoding="utf-8")
@@ -34,14 +34,11 @@ class GestorSecuencia:
         self.colores_ingresados.clear()
 
     def calcular_longitud_secuencia(self):
-        nivel = self.consultar_nivel()
-        return max(1, (nivel + 1) // 2)
+        return max(1, (self.consultar_nivel() + 1) // 2)
 
     def iniciar_juego(self):
-        self.colores_secuencia.clear()
+        self.colores_secuencia = [randint(1, 4) for _ in range(self.calcular_longitud_secuencia())]
         self.colores_ingresados.clear()
-        for _ in range(self.calcular_longitud_secuencia()):
-            self.colores_secuencia.append(randint(1, 4))
         return self.colores_secuencia
 
     def verificar_color(self, numero_color):
@@ -59,3 +56,18 @@ class GestorSecuencia:
             return "EXITO"
             
         return "CONTINUAR"
+
+class GestorPuntuacion:
+    def __init__(self): 
+        self.total = 0
+        
+    def reset(self): 
+        self.total = 0
+        
+    def agregar_por_ronda(self, tiempo_restante, nivel, multiplicador=1.0):
+        puntos = int((max(0.0, float(tiempo_restante)) * 100 + max(1, int(nivel)) * 50) * float(multiplicador))
+        self.total += puntos
+        return puntos 
+        
+    def agregar_por_acierto(self, tiempo_restante, nivel, multiplicador=1.0):
+        return self.agregar_por_ronda(tiempo_restante, nivel, multiplicador)
