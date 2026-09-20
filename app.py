@@ -75,6 +75,18 @@ class App:
         if pygame.mixer.get_init() and config.archivo_sonido_settings.exists():
             self.sonido_settings = pygame.mixer.Sound(str(config.archivo_sonido_settings))
             self.sonido_settings.set_volume(0.3)
+        
+        self.sonido_uno = None
+        ruta_sonido_uno = config.directorio_base / "assets" / "sounds" / "sonido uno.mp3"
+        if pygame.mixer.get_init() and ruta_sonido_uno.exists():
+            self.sonido_uno = pygame.mixer.Sound(str(ruta_sonido_uno))
+            self.sonido_uno.set_volume(0.5)
+
+        self.sonido_error = None
+        ruta_sonido_error = config.directorio_base / "assets" / "sounds" / "rwind.mp3"
+        if pygame.mixer.get_init() and ruta_sonido_error.exists():
+            self.sonido_error = pygame.mixer.Sound(str(ruta_sonido_error))
+            self.sonido_error.set_volume(0.5)
 
         directorio_imagenes = config.directorio_base / "assets" / "images"
         directorio_fondos = config.directorio_base / "assets" / "backgrounds"
@@ -128,9 +140,14 @@ class App:
         self.ventana_creditos_abierta = False
         self.ventana_settings_abierta = False
         self.sonidos_sistema_silenciados = False
-        self.rect_ajuste_musica = pygame.Rect(0, 0, 360, 42)
-        self.rect_ajuste_musica.center = (self.pantalla.get_rect().centerx, 365)
-        self.rect_ajuste_sistema = self.rect_ajuste_musica.move(0, 58)
+        centro_x = self.pantalla.get_rect().centerx
+        # Botones uno al lado del otro: música a la izquierda, sonidos a la derecha
+        self.rect_ajuste_musica = pygame.Rect(0, 0, 50, 50)
+        self.rect_ajuste_musica.center = (centro_x - 80, 385)
+        self.rect_ajuste_sistema = pygame.Rect(0, 0, 50, 50)
+        self.rect_ajuste_sistema.center = (centro_x + 80, 385)
+        self.imagen_silencio_on = pygame.image.load(directorio_imagenes / "silencio on.png").convert_alpha()
+        self.imagen_silencio_off = pygame.image.load(directorio_imagenes / "silencio off.png").convert_alpha()
         self.video_fondo = None
         if cv2 is not None:
             self.video_fondo = cv2.VideoCapture(str(directorio_fondos / "e.mp4"))
@@ -173,6 +190,10 @@ class App:
         self.logo_intro = pygame.transform.smoothscale(self.logo_intro, (420, 420))
         self.rect_logo_intro = self.logo_intro.get_rect(center=self.pantalla.get_rect().center)
         self.imagen_boton_reinicio = pygame.transform.smoothscale(
+            pygame.image.load(directorio_imagenes / "boton 1 move.png").convert_alpha(),
+            (200, 50),
+        )
+        self.imagen_boton_reinicio_presionado = pygame.transform.smoothscale(
             pygame.image.load(directorio_imagenes / "boton 1.png").convert_alpha(),
             (200, 50),
         )
@@ -183,6 +204,14 @@ class App:
         self.imagen_boton_volver_presionado = pygame.transform.smoothscale(
             pygame.image.load(directorio_imagenes / "boton 2.png").convert_alpha(),
             (200, 50),
+        )
+        self.imagen_boton_iniciar = pygame.transform.smoothscale(
+            pygame.image.load(directorio_imagenes / "boton 3 move.png").convert_alpha(),
+            (400, 70),
+        )
+        self.imagen_boton_iniciar_presionado = pygame.transform.smoothscale(
+            pygame.image.load(directorio_imagenes / "boton 3 nuevo.png").convert_alpha(),
+            (400, 70),
         )
 
         tamano_imagen_personaje = 170
@@ -212,6 +241,27 @@ class App:
             )
             for nombre, archivo in nombres_imagenes_personajes_hover.items()
         }
+        nombres_chibi = {
+            "Miku": "Miku Chibi.png",
+            "Teto": "Teto Chibi.png",
+            "Neru": "Neru Chibi Corregido.png",
+            "Gumi": "Gumi Chibi.png",
+        }
+        self.imagenes_chibi = {
+            nombre: pygame.transform.smoothscale(
+                pygame.image.load(directorio_imagenes / archivo).convert_alpha(),
+                (80, 80),
+            )
+            for nombre, archivo in nombres_chibi.items()
+        }
+        self.imagenes_chibi_grande = {
+            nombre: pygame.transform.smoothscale(
+                pygame.image.load(directorio_imagenes / archivo).convert_alpha(),
+                (350, 350),
+            )
+            for nombre, archivo in nombres_chibi.items()
+        }
+        self.imagen_burbuja_texto = pygame.image.load(directorio_imagenes / "texto.png").convert_alpha()
         self.fondo_recuadro_neru = pygame.transform.smoothscale(
             pygame.image.load(directorio_imagenes / "cuADRO AMARILLO.png").convert_alpha(),
             (210, 210),
@@ -314,12 +364,12 @@ class App:
             alto_boton_personaje,
         )
         self.rect_personaje_confirmacion = pygame.Rect(
-            centro_x - ancho_boton_personaje // 2,
+            centro_x - 400,
             165,
             ancho_boton_personaje,
             alto_boton_personaje,
         )
-        self.rect_continuar = pygame.Rect(centro_x - 200, 500, 400, 70)
+        self.rect_continuar = pygame.Rect(centro_x - 200, 460, 400, 70)
         self.personaje_hover = None
         posicion_lateral_x = self.pantalla.get_rect().right - 253
         self.rect_reinicio = pygame.Rect(posicion_lateral_x, centro_y - 55, 200, 50)
@@ -327,7 +377,8 @@ class App:
 
         self.t_total = 10.0
         self.t_restante = 10.0
-        self.mensaje = "Listo"
+        self.mensaje = ""
+        self.texto_nivel = ""
         
         # Variables para la animación de parpadeo de secuencia
         self.color_iluminado = None
@@ -336,7 +387,10 @@ class App:
         self.luz_encendida = False
         self.boton_presionado = None
         self.tiempo_boton_presionado = 0
-        self.volver_presionado = False
+        self.volver_presionado = 0    # timestamp ms del click, 0 = no presionado
+        self.reinicio_presionado = 0  # timestamp ms del click, 0 = no presionado
+        self.iniciar_presionado = 0   # timestamp ms del click, 0 = no presionado
+        self.continuar_presionado = 0 # timestamp ms del click, 0 = no presionado
         self.tiempo_espera_transicion = 0
         self.tiempo_transicion_nivel = 0
         self.pulsos_por_segundo_personaje = 180 / 60
@@ -347,7 +401,8 @@ class App:
         self.penalizacion_error = self.personaje_actual.penalizacion_error
         self.t_total = 10.0
         self.t_restante = 10.0
-        self.mensaje = f"Nivel {self.gestor_secuencia.consultar_nivel()}"
+        self.texto_nivel = f"Nivel {self.gestor_secuencia.consultar_nivel()}"
+        self.mensaje = ""
         self.iniciar_animacion()
 
     def saltar_nivel(self):
@@ -361,7 +416,7 @@ class App:
         if not self.musica_reproduciendose or not pygame.mixer.get_init():
             return
 
-        musica_de_menu = self.estado_actual in ("INTRO", "MENU", "SELECCION", "CONFIRMACION_PERSONAJE")
+        musica_de_menu = self.estado_actual in ("INTRO", "MENU", "SELECCION", "CONFIRMACION_PERSONAJE", "GAME_OVER")
         if musica_de_menu and pygame.mixer.music.get_busy() is False:
             pygame.mixer.music.unpause()
         elif not musica_de_menu and pygame.mixer.music.get_busy():
@@ -428,10 +483,16 @@ class App:
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                     if self.rect_volver.collidepoint(evento.pos):
                         self.volver_presionado = pygame.time.get_ticks()
+                    if self.rect_reinicio.collidepoint(evento.pos):
+                        self.reinicio_presionado = pygame.time.get_ticks()
+                    if self.estado_actual == "MENU" and self.rect_iniciar.collidepoint(evento.pos):
+                        self.iniciar_presionado = pygame.time.get_ticks()
+                    if self.estado_actual == "CONFIRMACION_PERSONAJE" and self.rect_continuar.collidepoint(evento.pos):
+                        self.continuar_presionado = pygame.time.get_ticks()
                     self.manejar_clic(evento.pos)
 
                 if evento.type == pygame.MOUSEBUTTONUP and evento.button == 1:
-                    self.volver_presionado = 0
+                    pass
 
                 if (
                     evento.type == pygame.KEYDOWN
@@ -467,11 +528,25 @@ class App:
             if self.boton_presionado is not None and pygame.time.get_ticks() >= self.tiempo_boton_presionado:
                 self.boton_presionado = None
 
+            if self.iniciar_presionado != 0 and pygame.time.get_ticks() >= self.iniciar_presionado + 70:
+                self.iniciar_presionado = 0
+                self.estado_actual = "SELECCION"
+
+            if self.continuar_presionado != 0 and pygame.time.get_ticks() >= self.continuar_presionado + 70:
+                self.continuar_presionado = 0
+                self.preparar_juego()
+
             if self.volver_presionado != 0 and pygame.time.get_ticks() >= self.volver_presionado + 70:
                 self.gestor_secuencia.reiniciar_progreso()
                 self.gestor_puntuacion.reset()
                 self.volver_presionado = 0
                 self.estado_actual = "MENU"
+
+            if self.reinicio_presionado != 0 and pygame.time.get_ticks() >= self.reinicio_presionado + 70:
+                self.gestor_secuencia.reiniciar_progreso()
+                self.gestor_puntuacion.reset()
+                self.reinicio_presionado = 0
+                self.estado_actual = "SELECCION"
 
             self.actualizar_musica()
             
@@ -549,7 +624,6 @@ class App:
             elif self.rect_iniciar.collidepoint(pos):
                 if self.sonido_iniciar is not None and not self.sonidos_sistema_silenciados:
                     self.sonido_iniciar.play()
-                self.estado_actual = "SELECCION"
             
         elif self.estado_actual == "SELECCION":
             if self.rect_miku.collidepoint(pos):
@@ -575,7 +649,8 @@ class App:
 
         elif self.estado_actual == "CONFIRMACION_PERSONAJE":
             if self.rect_continuar.collidepoint(pos):
-                self.preparar_juego()
+                if self.sonido_uno is not None and not self.sonidos_sistema_silenciados:
+                    self.sonido_uno.play()
 
         elif self.estado_actual == "JUGANDO":
             self.personaje_actual.aplicar_habilidad(self)
@@ -594,6 +669,8 @@ class App:
                         self.sonido_boton_amarillo.play()
                     resultado = self.gestor_secuencia.verificar_color(numero)
                     if resultado == "ERROR":
+                        if self.sonido_error is not None and not self.sonidos_sistema_silenciados:
+                            self.sonido_error.play()
                         if self.error_debe_penalizar():
                             self.t_restante -= self.penalizacion_error
                             if self.t_restante <= 0:
@@ -625,8 +702,6 @@ class App:
             if self.rect_reinicio.collidepoint(pos):
                 if self.sonido_settings is not None and not self.sonidos_sistema_silenciados:
                     self.sonido_settings.play()
-                self.gestor_secuencia.reiniciar_progreso()
-                self.estado_actual = "SELECCION"
             elif self.rect_volver.collidepoint(pos):
                 if self.sonido_settings is not None and not self.sonidos_sistema_silenciados:
                     self.sonido_settings.play()
@@ -635,9 +710,6 @@ class App:
             if self.rect_reinicio.collidepoint(pos):
                 if self.sonido_settings is not None and not self.sonidos_sistema_silenciados:
                     self.sonido_settings.play()
-                self.gestor_secuencia.reiniciar_progreso()
-                self.gestor_puntuacion.reset()
-                self.estado_actual = "SELECCION"
             elif self.rect_volver.collidepoint(pos):
                 if self.sonido_settings is not None and not self.sonidos_sistema_silenciados:
                     self.sonido_settings.play()
@@ -756,7 +828,7 @@ class App:
                 )
 
     def dibujar_ventana_settings(self):
-        rect_ventana = pygame.Rect(0, 0, 430, 220)
+        rect_ventana = pygame.Rect(0, 0, 350, 220)
         rect_ventana.center = self.pantalla.get_rect().center
         ventana = pygame.Surface(rect_ventana.size, pygame.SRCALPHA)
         ventana.fill((0, 0, 0, 190))
@@ -765,16 +837,17 @@ class App:
             "AJUSTES",
             self.fuente_titulo,
             (255, 255, 255),
-            (rect_ventana.centerx, rect_ventana.top + 65),
+            (rect_ventana.centerx, rect_ventana.top + 50),
         )
-        texto_musica = "MÚSICA: SILENCIADA" if self.musica_silenciada else "MÚSICA: ACTIVADA"
-        texto_sistema = (
-            "SONIDOS SISTEMA: SILENCIADOS"
-            if self.sonidos_sistema_silenciados
-            else "SONIDOS SISTEMA: ACTIVADOS"
-        )
-        self.dibujar_boton(self.rect_ajuste_musica, texto_musica, (255, 255, 255), (0, 0, 0))
-        self.dibujar_boton(self.rect_ajuste_sistema, texto_sistema, (255, 255, 255), (0, 0, 0))
+        # Etiquetas
+        self.dibujar_texto_centrado("Música", self.fuente_normal, (255, 255, 255), (self.rect_ajuste_musica.centerx, self.rect_ajuste_musica.top - 22))
+        self.dibujar_texto_centrado("Sonidos", self.fuente_normal, (255, 255, 255), (self.rect_ajuste_sistema.centerx, self.rect_ajuste_sistema.top - 22))
+        # Icono Música
+        img_musica = self.imagen_silencio_on if self.musica_silenciada else self.imagen_silencio_off
+        self.pantalla.blit(img_musica, self.rect_ajuste_musica)
+        # Icono Sonidos Sistema
+        img_sistema = self.imagen_silencio_on if self.sonidos_sistema_silenciados else self.imagen_silencio_off
+        self.pantalla.blit(img_sistema, self.rect_ajuste_sistema)
 
     def dibujar_texto_lateral(self, texto, fuente, color, y, lado):
         superficie = fuente.render(texto, True, color)
@@ -814,7 +887,7 @@ class App:
         angulos_animacion = (45, 0, -45, 0)
         angulo = angulos_animacion[indice_pulso % len(angulos_animacion)]
         imagen_inclinada = pygame.transform.rotate(imagen, angulo)
-        rect_imagen = imagen_inclinada.get_rect(center=(85, 190))
+        rect_imagen = imagen_inclinada.get_rect(center=(145, 190))
         self.pantalla.blit(imagen_inclinada, rect_imagen)
 
     def dibujar_barra_tiempo(self):
@@ -903,7 +976,9 @@ class App:
             centro_x = self.pantalla.get_rect().centerx
             centro_y = self.pantalla.get_rect().centery
             self.pantalla.blit(self.logo_inicio, self.rect_logo_inicio)
-            self.dibujar_boton(self.rect_iniciar, "Haz clic para iniciar", (255, 255, 255), (50, 50, 50))
+            img_iniciar = self.imagen_boton_iniciar_presionado if self.iniciar_presionado != 0 else self.imagen_boton_iniciar
+            self.pantalla.blit(img_iniciar, self.rect_iniciar)
+            self.dibujar_texto_centrado("Haz clic para iniciar", self.fuente_normal, (255, 255, 255), self.rect_iniciar.center)
             rect_creditos = self.rect_boton_creditos
             self.pantalla.blit(self.boton_creditos, rect_creditos)
             self.pantalla.blit(self.boton_settings, self.rect_boton_settings)
@@ -943,7 +1018,7 @@ class App:
             self.pantalla.blit(self.fondo_seleccion, (0, 0))
             centro_x = self.pantalla.get_rect().centerx
             self.dibujar_texto_centrado(
-                "PERSONAJE SELECCIONADO",
+                "¿Cómo Jugar?",
                 self.fuente_titulo,
                 (0, 0, 0),
                 (centro_x, 93),
@@ -953,11 +1028,27 @@ class App:
                 self.rect_personaje_confirmacion,
                 self.personaje_actual.nombre,
             )
-            self.dibujar_boton(
-                self.rect_continuar,
+
+            lineas_instrucciones = [
+                "Al iniciar el juego se reproducirá una secuencia",
+                "de colores que emitirán sonidos diferentes,",
+                "deberás repetir la secuencia en el orden exacto",
+                "que se indicó guiandote por los colores o",
+                "los sonidos, si aciertas avanzarás de nivel y",
+                "aumentará la dificultad de la secuencia."
+            ]
+            y_texto = 180
+            for linea in lineas_instrucciones:
+                self.dibujar_texto_centrado(linea, self.fuente_normal, (0, 0, 0), (centro_x + 150, y_texto))
+                y_texto += 35
+
+            img_continuar = self.imagen_boton_iniciar_presionado if self.continuar_presionado != 0 else self.imagen_boton_iniciar
+            self.pantalla.blit(img_continuar, self.rect_continuar)
+            self.dibujar_texto_centrado(
                 "CONTINUAR",
+                self.fuente_normal,
                 (255, 255, 255),
-                (50, 50, 50),
+                self.rect_continuar.center
             )
 
         elif self.estado_actual in ["MOSTRANDO_SECUENCIA", "JUGANDO"]:
@@ -985,7 +1076,49 @@ class App:
                 (0, 0, 0),
                 (self.rect_barra_tiempo.centerx, self.rect_barra_tiempo.top - 35),
             )
-            self.dibujar_texto_lateral(self.mensaje, self.fuente_normal, (0, 100, 0), 30, "derecha")
+            # Centro aproximado de la figura azul en el fondo
+            centro_azul_x = self.pantalla.get_rect().right - 185
+            
+            # Nivel centrado en la figura azul
+            if self.texto_nivel:
+                self.dibujar_texto_centrado(self.texto_nivel, self.fuente_normal, (0, 0, 0), (centro_azul_x, 30))
+            
+            # Chibi + burbuja debajo, solo si hay mensaje de acción
+            if self.personaje_actual is not None and self.mensaje:
+                chibi = self.imagenes_chibi.get(self.personaje_actual.nombre)
+                if chibi:
+                    burbuja_orig = self.imagen_burbuja_texto
+                    chibi_size = 70  # Un poco más grande
+                    burbuja_h = 60
+                    
+                    # Ancho dinámico basado en el mensaje
+                    ancho_texto = self.fuente_normal.size(self.mensaje)[0]
+                    burbuja_w = max(200, ancho_texto + 40)
+                    
+                    # Calcular el ancho total del conjunto (chibi + burbuja solapados un poco)
+                    solapamiento = 15
+                    grupo_w = chibi_size + burbuja_w - solapamiento
+                    
+                    # Centrar el conjunto entero en el cuadro azul
+                    grupo_x = centro_azul_x - grupo_w // 2
+                    chibi_x = grupo_x
+                    burbuja_x = chibi_x + chibi_size - solapamiento
+                    
+                    # Posición Y debajo del texto de nivel
+                    chibi_y = 60
+                    burbuja_y = 60
+                    
+                    burbuja = pygame.transform.smoothscale(burbuja_orig, (burbuja_w, burbuja_h))
+                    chibi_scaled = pygame.transform.smoothscale(chibi, (chibi_size, chibi_size))
+                    
+                    self.pantalla.blit(chibi_scaled, (chibi_x, chibi_y))
+                    self.pantalla.blit(burbuja, (burbuja_x, burbuja_y))
+                    self.dibujar_texto_centrado(
+                        self.mensaje,
+                        self.fuente_normal,
+                        (0, 0, 0),
+                        (burbuja_x + burbuja_w // 2, burbuja_y + burbuja_h // 2),
+                    )
             for numero, rect in self.rects_botones.items():
                 esta_presionado = (
                     self.color_iluminado == numero
@@ -998,9 +1131,10 @@ class App:
             if self.estado_actual == "JUGANDO":
                 self.dibujar_personaje_jugando()
 
-            self.pantalla.blit(self.imagen_boton_reinicio, self.rect_reinicio)
+            img_reinicio = self.imagen_boton_reinicio_presionado if self.reinicio_presionado != 0 else self.imagen_boton_reinicio
+            self.pantalla.blit(img_reinicio, self.rect_reinicio)
             self.dibujar_texto_centrado("REINICIAR", self.fuente_normal, (255, 255, 255), self.rect_reinicio.center)
-            img_volver = self.imagen_boton_volver_presionado if self.volver_presionado else self.imagen_boton_volver
+            img_volver = self.imagen_boton_volver_presionado if self.volver_presionado != 0 else self.imagen_boton_volver
             self.pantalla.blit(img_volver, self.rect_volver)
             self.dibujar_texto_centrado("VOLVER", self.fuente_normal, (255, 255, 255), self.rect_volver.center)
 
@@ -1050,8 +1184,16 @@ class App:
                 (0, 0, 0),
                 (centro_x, 300),
             )
-            self.pantalla.blit(self.imagen_boton_reinicio, self.rect_reinicio)
+            
+            if self.personaje_actual is not None:
+                chibi_grande = self.imagenes_chibi_grande.get(self.personaje_actual.nombre)
+                if chibi_grande:
+                    rect_chibi = chibi_grande.get_rect(center=(centro_x, 500))
+                    self.pantalla.blit(chibi_grande, rect_chibi)
+
+            img_reinicio = self.imagen_boton_reinicio_presionado if self.reinicio_presionado != 0 else self.imagen_boton_reinicio
+            self.pantalla.blit(img_reinicio, self.rect_reinicio)
             self.dibujar_texto_centrado("REINICIAR", self.fuente_normal, (255, 255, 255), self.rect_reinicio.center)
-            img_volver = self.imagen_boton_volver_presionado if self.volver_presionado else self.imagen_boton_volver
+            img_volver = self.imagen_boton_volver_presionado if self.volver_presionado != 0 else self.imagen_boton_volver
             self.pantalla.blit(img_volver, self.rect_volver)
             self.dibujar_texto_centrado("VOLVER", self.fuente_normal, (255, 255, 255), self.rect_volver.center)

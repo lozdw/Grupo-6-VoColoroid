@@ -4,6 +4,8 @@ from app import App
 from config import ConfiguracionJuego
 
 def main():
+    # Pre-inicializar el mixer con un buffer pequeño (512 en vez de 4096) para eliminar el lag o retraso de los sonidos
+    pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.init()
     pygame.mixer.init()
 
