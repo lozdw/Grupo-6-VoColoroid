@@ -206,7 +206,8 @@ class VistasJuego:
 
                 for num, rect in self.rects_botones.items():
                     presionado = False
-                    if self.estado_actual in ["MOSTRANDO_SECUENCIA", "TRANSICION_NIVEL"]: presionado = (self.color_iluminado == num)
+                    if self.estado_actual in ["MOSTRANDO_SECUENCIA", "TRANSICION_NIVEL"]:
+                        presionado = self.color_iluminado == num or self.boton_presionado == num
                     if self.estado_actual in ["JUGANDO", "ESPERANDO_TRANSICION"]:
                         if self.boton_presionado == num or self.color_iluminado == num: presionado = True
                     self.pantalla.blit(self.imagenes_botones[num]["presionado" if presionado else "normal"], rect)
